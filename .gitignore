@@ -1,0 +1,22 @@
+**/bin/
+**/obj/
+**/target/
+.packages/
+.tools/
+artifacts/
+TestResults/
+.vs/
+.idea/
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Local authentication material must stay outside source control.
+.aws/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
