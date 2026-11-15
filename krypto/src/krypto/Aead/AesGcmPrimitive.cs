@@ -14,23 +14,67 @@ internal sealed class AesGcmPrimitive : IAead, IDisposable
     internal AesGcmPrimitive(ReadOnlySpan<byte> key)
     {
         CryptoValidation.AesKeySize(key.Length);
-        _key = key.ToArray();
+        _key = [.. key];
     }
 
     public byte[] Encrypt(ReadOnlySpan<byte> plaintext, ReadOnlySpan<byte> associatedData)
     {
+        // Validate that it is not disposed
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        byte[] output = new byte[CryptoValidation.AddLengths(plaintext.Length, NonceSize + TagSize)];
 
-        throw new NotImplementedException();
+        // Add nonce
+        RandomNumberGenerator.Fill(output.AsSpan(0, NonceSize));
+        using var aes = new AesGcm(_key, TagSize);
+        try
+        {
+            aes.Encrypt(
+                output.AsSpan(0, NonceSize),
+                plaintext,
+                output.AsSpan(NonceSize, plaintext.Length),
+                output.AsSpan(NonceSize + plaintext.Length),
+                associatedData
+            );
+   
+            return output;
+        }
+        catch (CryptographicException ex)
+        {
+            throw new GeneralCryptoException("Encryption failed.", ex);
+        }
         
     }
 
     public byte[] Decrypt(ReadOnlySpan<byte> ciphertext, ReadOnlySpan<byte> associatedData)
     {
-        throw new NotImplementedException();
+
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (ciphertext.Length < NonceSize + TagSize)
+        {
+            throw new GeneralCryptoException("Decryption failed.");
+        }
+
+        byte[] plaintext = new byte[ciphertext.Length - NonceSize - TagSize];
+
+        using var aes = new AesGcm(_key, TagSize);
+        try
+        {
+            aes.Decrypt(
+            ciphertext[..NonceSize],
+            ciphertext.Slice(NonceSize, plaintext.Length),
+            ciphertext[^TagSize..], plaintext, associatedData
+            );
+
+            return plaintext;
+        } catch (CryptographicException exception){
+            throw new GeneralCryptoException("Decryption failed.", exception);
+        }
+
     }
 
     public void Dispose()
     {
-        throw new NotImplementedException();
+        CryptographicOperations.ZeroMemory(_key);
+        _disposed = true;
     }
 }
